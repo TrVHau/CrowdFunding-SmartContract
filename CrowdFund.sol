@@ -2,7 +2,8 @@
 pragma solidity ^0.8.33;
 
 import {PriceConverter} from "./PriceConverter.sol";
-contract CrowdFunding {
+
+contract CrowFunding {
     using PriceConverter for uint256;
     /*ERRORS*/
     error NotOwner();
@@ -14,7 +15,12 @@ contract CrowdFunding {
     /* VARIABLES*/
     address public immutable i_owner;
 
-    mapping(address => uint256) public fundedAmount;
+    mapping(address funder => bool isFunded) public isFunders;
+    mapping(address funder => uint256 value) public fundedAmount;
+    address[] public funders;
+
+    event Funded(address indexed funder, uint256 value);
+    event Withdraw(address indexed owner, uint256 value);
 
     /*CONSTRUCTOR*/
     constructor() {
@@ -40,10 +46,21 @@ contract CrowdFunding {
     function fund() public payable {
         if (msg.value.getConversionRate() < MINIMUM_USD)
             revert InsufficientAmount();
+        fundedAmount[msg.sender] += msg.value;
+        if (!isFunders[msg.sender]) {
+            isFunders[msg.sender] = true;
+            funders.push(msg.sender);
+        }
+        emit Funded(msg.sender, msg.value);
     }
 
     function withdraw() external onlyOwner {
         (bool success, ) = i_owner.call{value: address(this).balance}("");
         require(success, "ETH_TRANSFER_FAILED");
+        emit Withdraw(i_owner, address(this).balance);
+    }
+
+    function getFundersLength() public view returns (uint256) {
+        return funders.length;
     }
 }
